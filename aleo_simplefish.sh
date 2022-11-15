@@ -62,6 +62,9 @@ install_snarkos(){
 	sudo ufw allow 3033
 	echo "防火墙设置完毕"
 
+	sudo apt update
+	sudo apt install git
+
 	echo "开始下载aleo代码"
 	git clone https://github.com/AleoHQ/snarkOS.git --depth 1 ${Workspace} 
 	echo "aleo代码下载完成!"
