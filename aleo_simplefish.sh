@@ -1,6 +1,7 @@
 #!/bin/bash
 # aleo testnet3 激励测试一键部署脚本
-# 关注作者twitter   @simplefish3 ，不定期更新撸毛教程
+# 关注作者twitter:   https://twitter.com/simplefish3
+# 不定期更新撸毛教程
 
 Workspace=/root/aleo
 ScreenName=aleo
@@ -22,6 +23,37 @@ has_screen(){
 		return 0
 	fi
 }
+
+# 判断是否有private_key
+# 0 = 是  1 = 否
+has_private_key(){
+	PrivateKey=$(cat ${KeyFile} | grep "Private Key" | awk '{print $3}')	
+	if [ -z "${PrivateKey}" ]
+	then
+		echo "密钥不存在！"
+		return 1
+	else
+		echo "密钥可正常读取"
+		return 0
+	fi
+}
+
+## 生成密钥
+generate_key(){
+	echo "开始生成账户密钥"
+	snarkos account new > ${KeyFile}
+
+	has_private_key || exit 1
+
+	# 先将可能存在于/etc/profile中的密钥记录删除
+	sed -i '/PROVER_PRIVATE_KEY/d' /etc/profile
+
+	# 将密钥保存/etc/profile中使得可以被启动脚本读取
+	PrivateKey=$(cat ${KeyFile} | grep "Private Key" | awk '{print $3}')
+	echo "export PROVER_PRIVATE_KEY=$PrivateKey" >> /etc/profile
+	source /etc/profile
+}
+
 
 # 进入screen环境
 go_into_screen(){
@@ -52,6 +84,11 @@ install_snarkos(){
 	mkdir ${Workspace}
 	cd ${Workspace}	
 
+	# 安装必要的工具
+	sudo apt update
+	sudo apt install curl
+	sudo apt install git
+
 	echo "开始安装rust"
 	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh  -s -- -y
 	source $HOME/.cargo/env
@@ -62,12 +99,14 @@ install_snarkos(){
 	sudo ufw allow 3033
 	echo "防火墙设置完毕"
 
-	sudo apt update
-	sudo apt install git
-
 	echo "开始下载aleo代码"
 	git clone https://github.com/AleoHQ/snarkOS.git --depth 1 ${Workspace} 
-	echo "aleo代码下载完成!"
+	if [ -f ${Workspace}/build_ubuntu.sh ]
+        then
+               	echo "aleo代码下载完成!" 
+        else
+                echo "aleo代码下载失败，请确认服务器已安装好git后重新再试。可尝试手动执行 apt install git" && exit 1
+        fi
 
 	echo "开始安装依赖项"
 	bash ${Workspace}/build_ubuntu.sh
@@ -81,19 +120,9 @@ install_snarkos(){
 	apt install screen
 	echo "screen 安装成功！"
 
-	# 判断当前服务器是否已经有生成密钥了
-	if [ -f ${KeyFile} ] 
-	then 
-		echo "当前服务器已生成过账户和密钥"
-	else
-		# 生成账户和密钥
-		snarkos account new > ${KeyFile}
-	fi
+	# 判断当前服务器是否已经有生成密钥，没有则生成一下
+	has_private_key || generate_key
 
-	# 将密钥保存/etc/profile中使得可以被启动脚本读取
-	PrivateKey=$(cat ${KeyFile} | grep "Private Key" | awk '{print $3}')
-        echo "export PROVER_PRIVATE_KEY=$PrivateKey" >> /etc/profile
-        source /etc/profile
 
 	echo “账户和密钥保存在 ${KeyFile}，请妥善保管，以下是详细信息：”
 	cat ${KeyFile}
@@ -108,6 +137,8 @@ run_client(){
 
 	# 判断是否已经有screen存在了
 	has_screen && echo "执行脚本命令5进入screen查看" && exit 1
+	# 判断是否有密钥
+	has_private_key || exit 1
 
 	# 启动一个screen,并在screen中启动client节点
 	screen -dmS ${ScreenName}	
@@ -127,6 +158,8 @@ run_prover(){
 
 	# 判断是否已经有screen存在了
         has_screen && echo "执行脚本命令5进入screen查看" && exit 1
+	# 判断是否有密钥
+        has_private_key || exit 1
 
 	# 启动一个screen,并在screen中启动prover节点
         screen -dmS ${ScreenName}
@@ -141,7 +174,8 @@ run_prover(){
 
 echo && echo -e " 
 aleo testnet3 激励测试一键部署脚本
-关注作者 twitter  @simplefish3 , 不定期更新撸毛教程
+关注作者twitter:   https://twitter.com/simplefish3
+不定期更新撸毛教程
  ———————————————————————
  1.安装 aleo
  2.运行 prover 节点
