@@ -203,7 +203,7 @@ aleo testnet3 激励测试一键部署脚本
  ———————————————————————
  " && echo
 
-read -e -p " 请输入数字 [1-6]:" num
+read -e -p " 请输入数字 [1-9]:" num
 case "$num" in
 1)
 	install_snarkos
